@@ -1,3 +1,5 @@
+"use client";
+
 import MultipleChoiceQuiz from "@/components/MultipleChoiceQuiz";
 
 const sampleQuestions = [
