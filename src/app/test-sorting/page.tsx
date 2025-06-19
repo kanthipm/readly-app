@@ -1,6 +1,6 @@
 "use client";
 
-import SortingGame from "@/components/SortingGame";
+import SortingGame from "@/src/components/SortingGame";
 
 export default function TestSortingPage() {
   const items = ["First", "Second", "Third", "Fourth"];

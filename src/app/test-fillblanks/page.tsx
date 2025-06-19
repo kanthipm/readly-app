@@ -1,6 +1,6 @@
 "use client"
 
-import FillInTheBlank from "@/components/FillInTheBlank";
+import FillInTheBlank from "@/src/components/FillInTheBlank";
 
 const questions = [
   {
