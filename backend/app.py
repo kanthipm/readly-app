@@ -32,21 +32,32 @@ def chunk_text(text, max_tokens=1500):
 
 def generate_knowledge_map(text_chunk):
     prompt = f"""
-You are an educational AI assistant. Analyze the following educational content and extract a structured knowledge map in JSON format.
+You are an educational AI assistant. Given the following educational content, return ONLY a valid JSON knowledge map structured as below. Do not include any explanation or text outside the JSON.
 
-Each topic should include:
-- title
-- 2–3 subtopics with short descriptions
-- 3–5 key concepts
+Each output must follow this format:
 
-Format:
 {{
   "topic": "Main topic title",
   "subtopics": [
     {{
       "title": "Subtopic A",
-      "description": "Short summary...",
-      "key_concepts": ["concept 1", "concept 2", "concept 3"]
+      "description": "Short summary of this subtopic.",
+      "key_concepts": ["concept 1", "concept 2", "concept 3"],
+      "status": "unmastered",
+      "quiz": [
+        {{
+          "question": "What is ...?",
+          "options": ["A", "B", "C", "D"],
+          "answer": "B",
+          "explanation": "B is correct because..."
+        }},
+        {{
+          "question": "Why does ...?",
+          "options": ["W", "X", "Y", "Z"],
+          "answer": "X",
+          "explanation": "X is correct because..."
+        }}
+      ]
     }},
     ...
   ]
