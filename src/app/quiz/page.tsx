@@ -84,21 +84,46 @@ export default function QuizPage() {
 
           <p className="mb-4 font-medium text-white">{currentQuestion.question}</p>
           <div className="space-y-2 mb-4">
-            {currentQuestion.options.map((opt: string, i: number) => (
-              <button
-                key={i}
-                onClick={() => setSelected(opt)}
-                className={`block w-full text-left px-4 py-2 rounded border ${
-                  selected === opt
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-black hover:bg-gray-100"
-                }`}
-              >
-                {opt}
-              </button>
-            ))}
+            {currentQuestion.options.map((opt: string, i: number) => {
+                const isCorrect = opt === currentQuestion.answer;
+                const isSelected = opt === selected;
+
+                let style = "bg-white text-black hover:bg-gray-100"; // default
+
+                if (checked) {
+                    if (isCorrect) {
+                    style = "bg-green-800 text-white"; // correct = green
+                    } else if (isSelected) {
+                    style = "bg-red-800 text-white"; // selected wrong = red
+                    }
+                } else if (isSelected) {
+                    style = "bg-blue-600 text-white"; // current selection before check
+                }
+
+                return (
+                    <button
+                    key={i}
+                    onClick={() => {
+                        if (!checked) setSelected(opt); // only allow selection before checking
+                    }}
+                    disabled={checked} // disable all buttons after checking
+                    className={`block w-full text-left px-4 py-2 rounded border ${style}`}
+                    >
+                    {opt}
+                    </button>
+                );
+                })}
+
           </div>
 
+          {checked && (
+            <p className="mt-4 text-sm text-gray-500 italic">
+                Explanation: {currentQuestion.explanation}
+            </p>
+          )}
+
+
+        {/*  
           {checked && (
             <p
               className={`mb-4 font-medium ${
@@ -112,6 +137,7 @@ export default function QuizPage() {
               </span>
             </p>
           )}
+        */}
 
           <div className="flex space-x-4">
             {!checked ? (
@@ -132,7 +158,7 @@ export default function QuizPage() {
             ) : (
               <button
                 onClick={handleEndQuiz}
-                className="bg-green-600 text-white px-4 py-2 rounded"
+                className="bg-green-800 text-white px-4 py-2 rounded"
               >
                 End Quiz
               </button>
@@ -141,8 +167,8 @@ export default function QuizPage() {
         </div>
       ) : (
         <div className="text-center">
-          <h2 className="text-xl font-bold mb-4 text-black">🎉 Quiz Complete!</h2>
-          <p className="text-lg text-gray-800">
+          <h2 className="text-xl font-bold mb-4 text-white">🎉 Quiz Complete!</h2>
+          <p className="text-lg text-gray-500">
             You got {correctCount} out of {quiz.length} correct (
             {Math.round((correctCount / quiz.length) * 100)}%)
           </p>
