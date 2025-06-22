@@ -14,8 +14,10 @@ type Subtopic = {
   title: string;
   description: string;
   key_concepts: string[];
-  status: string;
   quiz: QuizQuestion[];
+  status: string; // "unmastered" or "mastered"
+  answered?: number;
+  correct?: number;
 };
 
 export default function QuizPage() {
@@ -70,15 +72,15 @@ export default function QuizPage() {
 
   return (
     <div className="max-w-xl mx-auto p-6">
-      <h1 className="text-2xl font-bold mb-4 text-black">🧠 Quiz: {subtopic.title}</h1>
+      <h1 className="text-2xl font-bold mb-4 text-white">🧠 Quiz: {subtopic.title}</h1>
 
       {!showResult ? (
         <div>
-          <p className="mb-4 text-gray-700">
+          <p className="mb-4 text-gray-600">
             Question {current + 1} of {quiz.length}
           </p>
 
-          <p className="mb-4 font-medium text-black">{currentQuestion.question}</p>
+          <p className="mb-4 font-medium text-white">{currentQuestion.question}</p>
           <div className="space-y-2 mb-4">
             {currentQuestion.options.map((opt: string, i: number) => (
               <button
@@ -143,12 +145,29 @@ export default function QuizPage() {
             {Math.round((correctCount / quiz.length) * 100)}%)
           </p>
 
-          <button
-            onClick={() => router.push("/")}
-            className="mt-6 bg-indigo-600 text-white px-6 py-2 rounded"
-          >
-            Back to Knowledge Map
-          </button>
+            <button
+                onClick={() => {
+                    const totalAnswered = quiz.length;
+                    const updatedSubtopic = {
+                        ...subtopic,
+                        answered: (subtopic.answered || 0) + totalAnswered,
+                        correct: (subtopic.correct || 0) + correctCount,
+                    };
+
+                    const accuracy = updatedSubtopic.correct / updatedSubtopic.answered;
+                    updatedSubtopic.status =
+                        accuracy >= 0.8 && updatedSubtopic.answered >= 100
+                            ? "mastered"
+                            : "unmastered";
+
+                    router.push(
+                        `/?updated=${encodeURIComponent(JSON.stringify(updatedSubtopic))}`
+                    );
+                }}
+                className="mt-6 bg-indigo-600 text-white px-6 py-2 rounded"
+            >
+                Back to Knowledge Map
+            </button>
         </div>
       )}
     </div>

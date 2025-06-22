@@ -2,11 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import fitz  # PyMuPDF
 import requests
+import json
 
 app = Flask(__name__)
 CORS(app)
 
 # ---------- Utils ----------
+
 def extract_text_from_pdf(file_stream):
     doc = fitz.open(stream=file_stream.read(), filetype="pdf")
     text = ""
@@ -32,10 +34,9 @@ def chunk_text(text, max_tokens=1500):
 
 def generate_knowledge_map(text_chunk):
     prompt = f"""
-You are an educational AI assistant. Given the following educational content, return ONLY a valid JSON knowledge map structured as below. Do not include any explanation or text outside the JSON.
+You are an educational AI assistant. Given the following educational content, return ONLY a valid JSON object structured exactly as below. Do not include any commentary or extra text — only valid JSON.
 
-Each output must follow this format:
-
+### JSON Format:
 {{
   "topic": "Main topic title",
   "subtopics": [
@@ -58,14 +59,17 @@ Each output must follow this format:
           "explanation": "X is correct because..."
         }}
       ]
-    }},
-    ...
+    }}
   ]
 }}
 
-Content:
+### Your Task:
+Generate a knowledge map based on the content below. Every quiz question **must** include an `explanation`. Do not omit it. Do not generate partial or invalid JSON.
+
+### Educational Content:
 {text_chunk}
 """
+
     response = requests.post(
         "http://localhost:11434/api/generate",
         json={"model": "mistral", "prompt": prompt, "stream": False}
@@ -76,6 +80,21 @@ Content:
     else:
         return f"Error: {response.status_code} - {response.text}"
 
+
+def validate_map(json_str):
+    try:
+        parsed = json.loads(json_str)
+        for sub in parsed.get("subtopics", []):
+            for q in sub.get("quiz", []):
+                if "explanation" not in q or not q["explanation"].strip():
+                    return False
+        return True
+    except Exception as e:
+        print("Validation error:", e)
+        return False
+
+
+# ---------- Routes ----------
 
 @app.route("/upload", methods=["POST"])
 def upload_pdf():
@@ -89,13 +108,16 @@ def upload_pdf():
     knowledge_maps = []
     for chunk in chunks[:3]:  # Limit to 3 chunks for now
         map_json = generate_knowledge_map(chunk)
-        knowledge_maps.append(map_json)
+        if validate_map(map_json):
+            knowledge_maps.append(map_json)
+        else:
+            print("❌ Skipping invalid map (missing explanation)")
 
     return jsonify({"maps": knowledge_maps})
 
 
-# Start the server
+# ---------- Run Server ----------
+
 if __name__ == "__main__":
     print("🚀 Starting Flask server on http://localhost:5000")
     app.run(debug=True)
-
