@@ -100,11 +100,12 @@ export default function FileUploader() {
 
       {maps && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-2">📚 Knowledge Map</h2>
+          <h2 className="text-xl font-semibold text-black mb-2">📚 Knowledge Map</h2>
           {maps.map((map, i) => {
             let parsed;
             try {
               parsed = JSON.parse(map); // parses the JSON knowledge map
+              console.log("Parsed map:", parsed);
             } catch (e) {
               return <p className="text-red-500">Invalid map data</p>;
             }
@@ -114,17 +115,16 @@ export default function FileUploader() {
                 <h3 className="text-2xl font-bold mb-4">{parsed.topic}</h3>
                 <ul>
                   {parsed.subtopics.map((sub, idx) => {
-                    console.log("Subtopic on click:", sub); // ✅ log here safely
+        
 
                     return (
                       <li
                         key={idx}
                         className="mb-4 border-b pb-2 cursor-pointer hover:bg-gray-100"
-                        onClick={() =>
-                          router.push(
-                            `/quiz?subtopic=${encodeURIComponent(sub.title)}&data=${encodeURIComponent(JSON.stringify(sub))}`
-                          )
-                        }
+                        onClick={() => {
+                          console.log("Subtopic on click:", sub);
+                          router.push(`/quiz?subtopic=${encodeURIComponent(sub.title)}&data=${encodeURIComponent(JSON.stringify(sub))}`);
+                        }}
                       >
                         <div className="flex justify-between items-center">
                           <span className="font-semibold">{sub.title}</span>

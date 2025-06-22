@@ -46,6 +46,8 @@ export default function QuizPage() {
   const quiz = subtopic.quiz || [];
   const currentQuestion = quiz[current];
 
+  console.log("Current question object:", currentQuestion);
+
   // added cuz erroring need to fix later
   if (!currentQuestion) {
     return <div className="p-6">No more questions available.</div>;
@@ -105,7 +107,7 @@ export default function QuizPage() {
             >
               {selected === currentQuestion.answer ? "✅ Correct!" : "❌ Incorrect."}
               <br />
-              <span className="text-gray-600 italic">
+              <span className="text-gray-500 italic">
                 Explanation: {currentQuestion.explanation}
               </span>
             </p>
