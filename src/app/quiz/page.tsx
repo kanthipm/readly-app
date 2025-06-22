@@ -18,6 +18,7 @@ type Subtopic = {
   status: string; // "unmastered" or "mastered"
   answered?: number;
   correct?: number;
+  context?: string;
 };
 
 export default function QuizPage() {
@@ -62,11 +63,39 @@ export default function QuizPage() {
     setChecked(true);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setChecked(false);
     setSelected(null);
+
+    if (current + 1 >= quiz.length - 1 && quiz.length < 100) {
+        try {
+        const res = await fetch("http://localhost:5000/generate-more", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ subtopic }),
+        });
+
+        const newData = await res.json();
+        const newQuestions = newData.questions || [];
+
+        if (newQuestions.length > 0) {
+            const updatedSubtopic = {
+            ...subtopic,
+            quiz: [...quiz, ...newQuestions],
+            };
+            setSubtopic(updatedSubtopic);
+        }
+        } catch (err) {
+        console.error("Failed to fetch more questions", err);
+        }
+    }
+
     setCurrent((i) => i + 1);
-  };
+    };
+
+
+
+
 
   const handleEndQuiz = () => {
     setShowResult(true);
@@ -141,29 +170,31 @@ export default function QuizPage() {
 
           <div className="flex space-x-4">
             {!checked ? (
-              <button
+                <button
                 onClick={handleCheck}
                 disabled={!selected}
                 className="bg-blue-600 text-white px-4 py-2 rounded"
-              >
+                >
                 Check
-              </button>
-            ) : current + 1 < quiz.length ? (
-              <button
-                onClick={handleNext}
-                className="bg-yellow-500 text-white px-4 py-2 rounded"
-              >
-                Next
-              </button>
+                </button>
             ) : (
-              <button
-                onClick={handleEndQuiz}
-                className="bg-green-800 text-white px-4 py-2 rounded"
-              >
-                End Quiz
-              </button>
+                <>
+                <button
+                    onClick={handleNext}
+                    className="bg-yellow-500 text-white px-4 py-2 rounded"
+                >
+                    Next
+                </button>
+                <button
+                    onClick={handleEndQuiz}
+                    className="bg-green-800 text-white px-4 py-2 rounded"
+                >
+                    End Quiz
+                </button>
+                </>
             )}
-          </div>
+            </div>
+
         </div>
       ) : (
         <div className="text-center">

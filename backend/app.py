@@ -64,7 +64,7 @@ You are an educational AI assistant. Given the following educational content, re
 }}
 
 ### Your Task:
-Generate a knowledge map based on the content below. Every quiz question **must** include an `explanation`. Do not omit it. Do not generate partial or invalid JSON.
+Generate a knowledge map based on the content below. Generate at least 10 quiz questions per subtopic. Every quiz question **must** include an `explanation`. Do not omit it. Do not generate partial or invalid JSON.
 
 ### Educational Content:
 {text_chunk}
@@ -114,6 +114,65 @@ def upload_pdf():
             print("❌ Skipping invalid map (missing explanation)")
 
     return jsonify({"maps": knowledge_maps})
+
+@app.route("/generate-more", methods=["POST"])
+def generate_more():
+    data = request.get_json()
+    subtopic = data.get("subtopic", {})
+    title = subtopic.get("title", "")
+    description = subtopic.get("description", "")
+    concepts = subtopic.get("key_concepts", [])
+    full_context = subtopic.get("context", "")  # new!
+
+    if not title or not full_context:
+        return jsonify({"error": "Missing title or full context"}), 400
+
+    prompt = f"""
+You are an educational AI assistant. Given the following subtopic, its description, key concepts, and full source content, generate 3 new, non-redundant multiple-choice quiz questions that test understanding.
+
+Return ONLY a valid JSON array like:
+[
+  {{
+    "question": "...",
+    "options": ["A", "B", "C", "D"],
+    "answer": "A",
+    "explanation": "..."
+  }},
+  ...
+]
+
+Title: {title}
+Description: {description}
+Key Concepts: {', '.join(concepts)}
+Source Content:
+{full_context}
+"""
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={"model": "mistral", "prompt": prompt, "stream": False}
+    )
+
+    if response.status_code != 200:
+        return jsonify({"error": "LLM request failed"}), 500
+
+    try:
+        questions = json.loads(response.json()["response"])
+        # Optional: validate structure of questions
+        valid = all(
+            isinstance(q, dict) and
+            "question" in q and "options" in q and
+            "answer" in q and "explanation" in q
+            for q in questions
+        )
+        if not valid:
+            raise ValueError("Invalid question format")
+
+        return jsonify({"questions": questions})
+
+    except Exception as e:
+        print("Parsing error:", e)
+        return jsonify({"error": "Invalid response from model"}), 500
+
 
 
 # ---------- Run Server ----------
