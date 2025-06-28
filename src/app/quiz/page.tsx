@@ -29,6 +29,7 @@ export default function QuizPage() {
   const [showResult, setShowResult] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [checked, setChecked] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const data = searchParams.get("data");
@@ -41,6 +42,64 @@ export default function QuizPage() {
     }
   }, [searchParams]);
 
+  const generateMoreQuestions = async () => {
+    if (!subtopic) return;
+    
+    setIsGenerating(true);
+    try {
+      console.log("🔄 Generating questions for:", subtopic.title);
+      
+      const response = await fetch("http://localhost:5000/generate-questions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          title: subtopic.title,
+          description: subtopic.description,
+          key_concepts: subtopic.key_concepts,
+          num_questions: 3,
+        }),
+      });
+
+      console.log("📡 Response status:", response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log("📦 Received data:", data);
+        
+        if (data.questions && Array.isArray(data.questions)) {
+          const newQuestions = data.questions;
+          
+          // Add new questions to the existing quiz
+          const updatedSubtopic = {
+            ...subtopic,
+            quiz: [...subtopic.quiz, ...newQuestions],
+          };
+          
+          setSubtopic(updatedSubtopic);
+          setCurrent(subtopic.quiz.length); // Move to the first new question
+          setSelected(null);
+          setChecked(false);
+          console.log("✅ Added", newQuestions.length, "new questions");
+        } else {
+          console.error("❌ Invalid response format:", data);
+          alert("Failed to generate questions: Invalid response format");
+        }
+      } else {
+        const errorText = await response.text();
+        console.error("❌ Server error:", response.status, errorText);
+        alert(`Failed to generate questions: ${response.status} - ${errorText}`);
+      }
+    } catch (error) {
+      console.error("❌ Network error:", error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Failed to generate questions: ${errorMessage}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (!subtopic) return <div className="p-6">Loading...</div>;
 
   const quiz = subtopic.quiz || [];
@@ -48,11 +107,16 @@ export default function QuizPage() {
 
   console.log("Current question object:", currentQuestion);
 
-  // added cuz erroring need to fix later
-  if (!currentQuestion) {
-    return <div className="p-6">No more questions available.</div>;
+  // Check if we need to generate more questions
+  if (!currentQuestion && !isGenerating) {
+    generateMoreQuestions();
+    return <div className="p-6 text-center">🔄 Generating more questions...</div>;
   }
 
+  // Show loading while generating
+  if (isGenerating) {
+    return <div className="p-6 text-center">🔄 Generating more questions...</div>;
+  }
 
   const handleCheck = () => {
     if (!selected) return;
@@ -122,23 +186,6 @@ export default function QuizPage() {
             </p>
           )}
 
-
-        {/*  
-          {checked && (
-            <p
-              className={`mb-4 font-medium ${
-                selected === currentQuestion.answer ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {selected === currentQuestion.answer ? "✅ Correct!" : "❌ Incorrect."}
-              <br />
-              <span className="text-gray-500 italic">
-                Explanation: {currentQuestion.explanation}
-              </span>
-            </p>
-          )}
-        */}
-
           <div className="flex space-x-4">
             {!checked ? (
               <button
@@ -148,21 +195,24 @@ export default function QuizPage() {
               >
                 Check
               </button>
-            ) : current + 1 < quiz.length ? (
+            ) : (
               <button
                 onClick={handleNext}
                 className="bg-yellow-500 text-white px-4 py-2 rounded"
               >
                 Next
               </button>
-            ) : (
-              <button
-                onClick={handleEndQuiz}
-                className="bg-green-800 text-white px-4 py-2 rounded"
-              >
-                End Quiz
-              </button>
             )}
+          </div>
+
+          {/* Manual end quiz option */}
+          <div className="mt-4 text-center">
+            <button
+              onClick={handleEndQuiz}
+              className="text-gray-400 hover:text-white text-sm underline"
+            >
+              End Quiz
+            </button>
           </div>
         </div>
       ) : (
