@@ -18,21 +18,21 @@ def check_ollama_status():
             models = response.json().get("models", [])
             mistral_available = any("mistral" in model.get("name", "").lower() for model in models)
             if mistral_available:
-                print("✅ Ollama is running and Mistral model is available")
+                print("Ollama is running and Mistral model is available")
                 return True
             else:
-                print("⚠️ Ollama is running but Mistral model not found")
-                print("💡 Install with: ollama pull mistral")
+                print("Ollama is running but Mistral model not found")
+                print("Install with: ollama pull mistral")
                 return False
         else:
-            print(f"⚠️ Ollama responded with status: {response.status_code}")
+            print(f"Ollama responded with status: {response.status_code}")
             return False
     except requests.exceptions.ConnectionError:
-        print("❌ Cannot connect to Ollama - is it running?")
-        print("💡 Start Ollama with: ollama serve")
+        print("Cannot connect to Ollama - is it running?")
+        print("Start Ollama with: ollama serve")
         return False
     except Exception as e:
-        print(f"⚠️ Error checking Ollama: {e}")
+        print(f"Error checking Ollama: {e}")
         return False
 
 
@@ -41,26 +41,26 @@ def preload_model():
     max_attempts = 3
     for attempt in range(max_attempts):
         try:
-            print(f"🔄 Preloading Mistral model (attempt {attempt + 1}/{max_attempts})...")
+            print(f"Preloading Mistral model (attempt {attempt + 1}/{max_attempts})...")
             response = requests.post(
                 "http://localhost:11434/api/generate",
                 json={"model": "mistral", "prompt": "Hello", "stream": False}
             )
             if response.status_code == 200:
-                print("✅ Model preloaded successfully")
+                print("Model preloaded successfully")
                 return True
             else:
-                print(f"❌ Model preload failed: {response.status_code}")
+                print(f"Model preload failed: {response.status_code}")
         except requests.exceptions.Timeout:
-            print(f"⏱️ Attempt {attempt + 1} timed out - retrying...")
+            print(f"Attempt {attempt + 1} timed out - retrying...")
         except requests.exceptions.ConnectionError:
-            print("❌ Cannot connect to Ollama - make sure it's running")
-            print("💡 Start Ollama with: ollama serve")
+            print("Cannot connect to Ollama - make sure it's running")
+            print("Start Ollama with: ollama serve")
             return False
         except Exception as e:
-            print(f"⚠️ Attempt {attempt + 1} failed: {e}")
+            print(f"Attempt {attempt + 1} failed: {e}")
     
-    print("❌ Failed to preload model after all attempts")
+    print("Failed to preload model after all attempts")
     return False
 
 
@@ -165,7 +165,7 @@ Make questions challenging but fair. ALWAYS include explanations for each questi
     # Try up to 2 times
     for attempt in range(2):
         try:
-            print(f"🔄 Generating questions (attempt {attempt + 1}/2)...")
+            print(f"Generating questions (attempt {attempt + 1}/2)...")
             response = requests.post(
                 "http://localhost:11434/api/generate",
                 json={"model": "mistral", "prompt": prompt, "stream": False}
@@ -173,21 +173,21 @@ Make questions challenging but fair. ALWAYS include explanations for each questi
 
             if response.status_code == 200:
                 result = response.json()["response"]
-                print(f"🤖 AI Response: {result[:200]}...")  # Debug: show first 200 chars
+                print(f"AI Response: {result[:200]}...")  # Debug: show first 200 chars
                 return result
             else:
-                print(f"❌ Ollama error: {response.status_code}")
+                print(f"Ollama error: {response.status_code}")
                 if attempt == 1:  # Last attempt
                     return f"Error: {response.status_code}"
         except requests.exceptions.Timeout:
-            print(f"⏱️ Attempt {attempt + 1} timed out")
+            print(f"Attempt {attempt + 1} timed out")
             if attempt == 1:  # Last attempt
                 return "Error: Request timed out"
         except requests.exceptions.ConnectionError:
-            print("❌ Cannot connect to Ollama - is it running?")
+            print("Cannot connect to Ollama - is it running?")
             return "Error: Cannot connect to Ollama"
         except Exception as e:
-            print(f"❌ Unexpected error on attempt {attempt + 1}: {e}")
+            print(f"Unexpected error on attempt {attempt + 1}: {e}")
             if attempt == 1:  # Last attempt
                 return f"Error: {str(e)}"
     
@@ -211,31 +211,31 @@ def validate_questions(json_str):
     try:
         questions = json.loads(json_str)
         if not isinstance(questions, list):
-            print("❌ Validation failed: Response is not a list")
+            print("Validation failed: Response is not a list")
             return False
         
         for i, q in enumerate(questions):
             if not isinstance(q, dict):
-                print(f"❌ Validation failed: Question {i} is not an object")
+                print(f"Validation failed: Question {i} is not an object")
                 return False
             
             required_fields = ["question", "options", "answer", "explanation"]
             for field in required_fields:
                 if field not in q:
-                    print(f"❌ Validation failed: Question {i} missing '{field}' field")
+                    print(f"Validation failed: Question {i} missing '{field}' field")
                     return False
                 if not q[field] or not str(q[field]).strip():
-                    print(f"❌ Validation failed: Question {i} has empty '{field}' field")
+                    print(f"Validation failed: Question {i} has empty '{field}' field")
                     return False
         
-        print(f"✅ Validation passed: {len(questions)} questions are valid")
+        print(f"Validation passed: {len(questions)} questions are valid")
         return True
     except json.JSONDecodeError as e:
-        print(f"❌ JSON decode error: {e}")
-        print(f"❌ Raw response: {json_str[:200]}...")
+        print(f"JSON decode error: {e}")
+        print(f"Raw response: {json_str[:200]}...")
         return False
     except Exception as e:
-        print(f"❌ Validation error: {e}")
+        print(f"Validation error: {e}")
         return False
 
 
@@ -258,7 +258,7 @@ def upload_pdf():
         if validate_map(map_json):
             knowledge_maps.append(map_json)
         else:
-            print("❌ Skipping invalid map (missing explanation)")
+            print("Skipping invalid map (missing explanation)")
 
     return jsonify({"maps": knowledge_maps})
 
@@ -274,7 +274,7 @@ def generate_additional_questions():
     
     num_questions = data.get("num_questions", 3)
     
-    print(f"🔄 Generating {num_questions} questions for: {data['title']}")
+    print(f"Generating {num_questions} questions for: {data['title']}")
     
     questions_json = generate_more_questions(
         data["title"], 
@@ -284,7 +284,7 @@ def generate_additional_questions():
     )
     
     generation_time = time.time() - start_time
-    print(f"⏱️ Question generation took {generation_time:.2f} seconds")
+    print(f"Question generation took {generation_time:.2f} seconds")
     
     if validate_questions(questions_json):
         try:
@@ -293,7 +293,7 @@ def generate_additional_questions():
         except json.JSONDecodeError:
             return jsonify({"error": "Invalid JSON response from AI model"}), 500
     else:
-        print("❌ Skipping invalid questions (missing explanation)")
+        print("Skipping invalid questions (missing explanation)")
         return jsonify({"error": "Generated questions are invalid"}), 500
 
 
@@ -336,14 +336,14 @@ def test_ollama():
 # ---------- Run Server ----------
 
 if __name__ == "__main__":
-    print("🚀 Starting Flask server on http://localhost:5000")
-    print("🔄 Preloading model...")
+    print("Starting Flask server on http://localhost:5000")
+    print("Preloading model...")
     
     if preload_model():
-        print("✅ Server ready!")
+        print("Server ready!")
     else:
-        print("❌ Failed to preload model - please check Ollama")
-        print("💡 Make sure Ollama is running: ollama serve")
+        print("Failed to preload model - please check Ollama")
+        print("Make sure Ollama is running: ollama serve")
         exit(1)
     
     app.run(debug=True)
