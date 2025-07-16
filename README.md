@@ -4,11 +4,10 @@ Readly is an educational platform that uses AI to create interactive learning ex
 
 ## Features
 
-- 📄 **PDF Upload & Processing**: Upload educational PDFs and extract content
-- 🧠 **AI Knowledge Mapping**: Generate structured knowledge maps with subtopics
-- ❓ **Interactive Quizzes**: Multiple choice questions with explanations
-- 🎯 **Learning Activities**: Fill-in-the-blank, matching, and sorting exercises
-- 📊 **Progress Tracking**: Track mastery status of different topics
+- **PDF Upload & Processing**: Upload educational PDFs and extract content
+- **AI Knowledge Mapping**: Generate structured knowledge maps with subtopics
+- **Interactive Quizzes**: Multiple choice questions with explanations
+- **Progress Tracking**: Track mastery status of different topics
 
 ## Prerequisites
 
