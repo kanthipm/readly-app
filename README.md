@@ -2,13 +2,6 @@
 
 Readly is an educational platform that uses AI to create interactive learning experiences from PDF documents. It generates knowledge maps, quizzes, and various learning activities to help users master educational content.
 
-## Features
-
-- **PDF Upload & Processing**: Upload educational PDFs and extract content
-- **AI Knowledge Mapping**: Generate structured knowledge maps with subtopics
-- **Interactive Quizzes**: Multiple choice questions with explanations
-- **Progress Tracking**: Track mastery status of different topics
-
 ## Prerequisites
 
 Before running Readly, you need to install and set up:
@@ -120,7 +113,3 @@ readly-app/
 - **Backend**: Flask, PyMuPDF, Requests
 - **AI**: Ollama with Mistral model
 - **UI Components**: Lucide React icons, Hello Pangea DnD
-
-## License
-
-[Add your license information here]
