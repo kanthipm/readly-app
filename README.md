@@ -113,3 +113,5 @@ readly-app/
 - **Backend**: Flask, PyMuPDF, Requests
 - **AI**: Ollama with Mistral model
 - **UI Components**: Lucide React icons, Hello Pangea DnD
+
+## License
