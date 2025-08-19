@@ -40,7 +40,8 @@ cd ..
 ```bash
 # From the project root
 cd backend
-python app.py
+pip install -r requirements.txt
+fastapi dev main.py --reload
 ```
 
 The backend will start on `http://localhost:5000` and automatically preload the Mistral model.
