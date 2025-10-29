@@ -49,7 +49,7 @@ export default function QuizPage() {
     try {
       console.log("🔄 Generating questions for:", subtopic.title);
       
-      const response = await fetch("http://localhost:5000/generate-questions", {
+      const response = await fetch("http://localhost:5000/api/v1/generate-questions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -10,7 +10,12 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # CORS settings
-    ALLOWED_ORIGINS: List[str] = ["*"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
 
     # Ollama settings
     OLLAMA_BASE_URL: str = "http://localhost:11434"

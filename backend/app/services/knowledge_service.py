@@ -1,52 +1,63 @@
 from typing import List
+import json
 
 from ..config import settings
-from ..services.ollama_service import ollama_service
+from ..services.gemini_service import gemini_service
 
 
 class KnowledgeService:
     def __init__(self):
-        self.ollama = ollama_service
+        self.gemini = gemini_service
 
-    def generate_knowledge_map(self, text_chunk: str) -> str:
-        """Generate a knowledge map from a text chunk"""
-        prompt = f"""
-You are an educational AI assistant. Given the following educational content, return ONLY a valid JSON object structured exactly as below. Do not include any commentary or extra text — only valid JSON.
+    def generate_knowledge_map(self, text_chunk: str, instructions: str = None) -> str:
+        """Generate a knowledge map from a text chunk using Gemini"""
+        instructions_section = ""
+        if instructions and instructions.strip():
+            instructions_section = f"\n### Additional Instructions:\n{instructions.strip()}\n"
+        
+        prompt = f"""You are an educational AI assistant. Analyze the educational content and return ONLY a valid JSON object. Do NOT include any markdown, code blocks, explanations, or extra text. Return ONLY the raw JSON.
 
-### JSON Format:
+CRITICAL: Your response must be valid JSON that can be parsed directly. Start with {{ and end with }}. No markdown code blocks, no comments, no extra text.
+
+{instructions_section if instructions_section else ""}### Required JSON Structure:
 {{
-  "topic": "Main topic title",
+  "topic": "Main topic title based on the content",
   "subtopics": [
     {{
-      "title": "Subtopic A",
-      "description": "Short summary of this subtopic.",
-      "key_concepts": ["concept 1", "concept 2", "concept 3"],
+      "title": "Subtopic title",
+      "description": "Brief summary of this subtopic from the content",
+      "key_concepts": ["concept from content", "another concept", "third concept"],
       "status": "unmastered",
       "quiz": [
         {{
-          "question": "What is ...?",
-          "options": ["A", "B", "C", "D"],
-          "answer": "B",
-          "explanation": "B is correct because..."
+          "question": "Question based on the content",
+          "options": ["A. Option from content", "B. Option from content", "C. Option from content", "D. Option from content"],
+          "answer": "Correct option letter with text",
+          "explanation": "Detailed explanation of why the answer is correct based on the content"
         }},
         {{
-          "question": "Why does ...?",
-          "options": ["W", "X", "Y", "Z"],
-          "answer": "X",
-          "explanation": "X is correct because..."
+          "question": "Another question from the content",
+          "options": ["A. Option", "B. Option", "C. Option", "D. Option"],
+          "answer": "Correct option",
+          "explanation": "Explanation based on the content"
         }}
       ]
     }}
   ]
 }}
 
-### Your Task:
-Generate a knowledge map based on the content below. Every quiz question **must** include an `explanation`. Do not omit it. Do not generate partial or invalid JSON.
+### Instructions:
+1. Generate 2-5 subtopics based on the content
+2. Create at least 2 quiz questions per subtopic
+3. ALL questions MUST have explanations
+4. Base everything on the actual content provided
+5. Return ONLY valid JSON, no markdown, no code blocks
 
-### Educational Content:
+### Educational Content to Analyze:
 {text_chunk}
-"""
-        return self.ollama.generate_response(prompt)
+
+Remember: Return ONLY the JSON object, starting with {{ and ending with }}."""
+        return self.gemini.generate_response(prompt)
 
     def generate_additional_questions(
         self,
@@ -56,29 +67,30 @@ Generate a knowledge map based on the content below. Every quiz question **must*
         num_questions: int = 3,
     ) -> str:
         """Generate additional quiz questions for a subtopic"""
-        prompt = f"""Generate {num_questions} multiple choice quiz questions for: {subtopic_title}
+        prompt = f"""Generate {num_questions} multiple choice quiz questions based on this subtopic.
 
-Key concepts: {', '.join(key_concepts[:3])}
+Subtopic: {subtopic_title}
+Description: {subtopic_description}
+Key Concepts: {', '.join(key_concepts[:5])}
 
-IMPORTANT: Every question MUST include an explanation field. Do not omit it.
+CRITICAL: Return ONLY a valid JSON array. Do NOT include markdown, code blocks, or any extra text. Start with [ and end with ].
 
-Return ONLY valid JSON array like this:
+Required Format:
 [
   {{
-    "question": "What is the main purpose of X?",
+    "question": "Question about the subtopic based on the description and key concepts",
     "options": ["A. Option A", "B. Option B", "C. Option C", "D. Option D"],
-    "answer": "B. Option B",
-    "explanation": "B is correct because it explains the main purpose clearly."
-  }},
-  {{
-    "question": "Why does Y happen?",
-    "options": ["A. Reason A", "B. Reason B", "C. Reason C", "D. Reason D"],
-    "answer": "C. Reason C",
-    "explanation": "C is correct because it provides the scientific explanation."
+    "answer": "Correct option with letter and text",
+    "explanation": "Detailed explanation of why this answer is correct based on the subtopic content"
   }}
 ]
 
-Make questions challenging but fair. ALWAYS include explanations for each question."""
+Requirements:
+- Generate exactly {num_questions} questions
+- All questions must be based on: {subtopic_title} - {subtopic_description}
+- Each question MUST have an explanation
+- Questions should test understanding of the key concepts: {', '.join(key_concepts[:5])}
+- Return ONLY the JSON array, no markdown, no code blocks"""
 
         # Try up to max retries
         for attempt in range(settings.MAX_RETRIES):
@@ -86,12 +98,12 @@ Make questions challenging but fair. ALWAYS include explanations for each questi
                 print(
                     f"Generating questions (attempt {attempt + 1}/{settings.MAX_RETRIES})..."
                 )
-                result = self.ollama.generate_response(prompt)
+                result = self.gemini.generate_response(prompt)
                 if result and not result.startswith("Error:"):
                     print(f"AI Response: {result[:200]}...")
                     return result
                 else:
-                    print(f"Ollama error: {result}")
+                    print(f"Gemini error: {result}")
                     if attempt == settings.MAX_RETRIES - 1:
                         return result or "Error: No response from model"
             except Exception as e:

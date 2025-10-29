@@ -1,4 +1,4 @@
-# PowerShell setup script for Readly App
+# PowerShell setup script for Quista App
 
 # Install Python dependencies
 pip install -r backend/requirements.txt

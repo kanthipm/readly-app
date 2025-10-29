@@ -1,10 +1,10 @@
-# Readly - AI-Powered Learning Platform
+# Quista - AI-Powered Learning Platform
 
-Readly is an educational platform that uses AI to create interactive learning experiences from PDF documents. It generates knowledge maps, quizzes, and various learning activities to help users master educational content.
+Quista is an educational platform that uses AI to create interactive learning experiences from PDF documents. It generates knowledge maps, quizzes, and various learning activities to help users master educational content.
 
 ## Prerequisites
 
-Before running Readly, you need to install and set up:
+Before running Quista, you need to install and set up:
 
 ### 1. Ollama (Required for AI functionality)
 - **Install Ollama**: Download from [ollama.ai](https://ollama.ai)
@@ -57,7 +57,7 @@ The frontend will start on `http://localhost:3000`.
 
 ### 4. Open the Application
 
-Open [http://localhost:3000](http://localhost:3000) in your browser to start using Readly.
+Open [http://localhost:3000](http://localhost:3000) in your browser to start using Quista.
 
 ## Usage
 

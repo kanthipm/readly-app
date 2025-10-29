@@ -1,4 +1,5 @@
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, UploadFile, Form
+from typing import Optional
 
 from ..config import settings
 from ..models.schemas import UploadResponse
@@ -13,7 +14,10 @@ uploaded_file_content = ""
 
 
 @router.post("/upload", response_model=UploadResponse)
-async def upload_pdf(file: UploadFile = File(...)):
+async def upload_pdf(
+    file: UploadFile = File(...),
+    instructions: Optional[str] = Form(None)
+):
     """Upload and process a PDF file to generate knowledge maps"""
     global uploaded_file_content
 
@@ -34,7 +38,10 @@ async def upload_pdf(file: UploadFile = File(...)):
         knowledge_maps = []
         for i, chunk in enumerate(chunks_to_process):
             print(f"Processing chunk {i+1}/{len(chunks_to_process)}")
-            map_json = knowledge_service.generate_knowledge_map(chunk)
+            map_json = knowledge_service.generate_knowledge_map(
+                chunk, 
+                instructions=instructions if instructions and instructions.strip() else None
+            )
 
             if validate_knowledge_map(map_json):
                 knowledge_maps.append(map_json)
