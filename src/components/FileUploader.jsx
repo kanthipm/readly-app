@@ -53,16 +53,37 @@ export default function FileUploader() {
   }, []);
 
   useEffect(() => {
+    // First ensure we've loaded from localStorage
+    if (allMaps.length === 0) {
+      const stored = localStorage.getItem("knowledgeMaps");
+      if (stored) {
+        try {
+          const mapsData = JSON.parse(stored);
+          if (Array.isArray(mapsData) && mapsData.length > 0) {
+            setAllMaps(mapsData);
+            if (mapsData.length > 0) {
+              setActiveMapId(mapsData[0].id);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load from localStorage", err);
+        }
+      }
+      return; // Wait for next render when allMaps is loaded
+    }
+
     const updatedParam = searchParams.get("updated");
 
     if (updatedParam && !hasAppliedUpdate.current) {
       try {
         const updatedSubtopic = JSON.parse(updatedParam);
 
+        // Recalculate status based on accuracy AND question count
         const accuracy = updatedSubtopic.answered
           ? (updatedSubtopic.correct || 0) / updatedSubtopic.answered
           : 0;
-        updatedSubtopic.status = accuracy >= 0.8 ? "mastered" : "unmastered";
+        // Mastery requires both 85%+ accuracy AND 25+ questions answered
+        updatedSubtopic.status = accuracy >= 0.85 && updatedSubtopic.answered >= 25 ? "mastered" : "unmastered";
 
         const updatedAllMaps = allMaps.map((mapGroup) => {
           const updatedMaps = mapGroup.maps.map((mapStr) => {
@@ -73,9 +94,38 @@ export default function FileUploader() {
             return mapStr;
           }
 
-          map.subtopics = map.subtopics.map((sub) =>
-            sub.title === updatedSubtopic.title ? updatedSubtopic : sub
-          );
+          // Find and update the matching subtopic, preserving all quiz questions and performance data
+          map.subtopics = map.subtopics.map((sub) => {
+            if (sub.title === updatedSubtopic.title) {
+              // Deep merge: preserve existing questions with IDs, add new ones
+              const existingQuestionMap = new Map((sub.quiz || []).map((q) => [q.id || q.question, q]));
+              
+              // Add updated questions from updatedSubtopic
+              (updatedSubtopic.quiz || []).forEach((q) => {
+                const qId = q.id || q.question;
+                if (existingQuestionMap.has(qId)) {
+                  // Merge performance data - keep the most recent
+                  const existing = existingQuestionMap.get(qId);
+                  existingQuestionMap.set(qId, {
+                    ...existing,
+                    ...q, // New data overrides old
+                    // Preserve higher counts if new data seems incomplete
+                    timesAsked: Math.max(existing.timesAsked || 0, q.timesAsked || 0),
+                    timesCorrect: Math.max(existing.timesCorrect || 0, q.timesCorrect || 0),
+                    timesWrong: Math.max(existing.timesWrong || 0, q.timesWrong || 0),
+                  });
+                } else {
+                  existingQuestionMap.set(qId, q);
+                }
+              });
+              
+              return {
+                ...updatedSubtopic,
+                quiz: Array.from(existingQuestionMap.values()), // Preserve all questions
+              };
+            }
+            return sub;
+          });
 
           return JSON.stringify(map);
         });
@@ -90,6 +140,15 @@ export default function FileUploader() {
         console.error("Failed to update subtopic", err);
       }
     }
+    
+    // Check for mapId in URL to set active tab
+    const mapIdParam = searchParams.get("mapId");
+    if (mapIdParam && allMaps.length > 0) {
+      const mapExists = allMaps.find(m => m.id === mapIdParam);
+      if (mapExists && activeMapId !== mapIdParam) {
+        setActiveMapId(mapIdParam);
+      }
+    }
   }, [searchParams, allMaps]);
 
   const handleUpload = async () => {
@@ -102,12 +161,12 @@ export default function FileUploader() {
       let res;
       
       if (inputMode === "file") {
-        const formData = new FormData();
-        formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
         if (instructions.trim()) {
           formData.append("instructions", instructions);
         }
-        
+
         res = await fetch("http://localhost:5000/api/v1/upload", {
         method: "POST",
         body: formData,
@@ -127,10 +186,23 @@ export default function FileUploader() {
 
       const data = await res.json();
       
+      // Extract title from the first knowledge map's topic
+      let generatedTitle = inputMode === "file" ? file.name.replace('.pdf', '') : 'Text Content';
+      if (data.maps && data.maps.length > 0) {
+        try {
+          const firstMap = JSON.parse(data.maps[0]);
+          if (firstMap.topic && firstMap.topic.trim()) {
+            generatedTitle = firstMap.topic.trim();
+          }
+        } catch (e) {
+          console.log('Could not parse map for title extraction', e);
+        }
+      }
+      
       // Create new map group
       const newMapGroup = {
         id: generateMapId(),
-        title: inputMode === "file" ? file.name.replace('.pdf', '') : 'Text Content',
+        title: generatedTitle,
         maps: data.maps,
         createdAt: new Date().toISOString()
       };
@@ -174,13 +246,105 @@ export default function FileUploader() {
         setAllMaps(updatedAll);
         localStorage.setItem('knowledgeMaps', JSON.stringify(updatedAll));
       } else {
-        // configure mode: apply prompt-only transformation to keep API contract simple
+        // configure mode: modify existing map based on instructions
         if (!configPrompt.trim()) return;
-        const payload = { content: `Modify structure with these instructions while preserving progress: ${configPrompt}` };
-        res = await fetch('http://localhost:5000/api/v1/process-text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        
+        // Get the current map JSON (should be the first map in the array)
+        const currentMapStr = activeMap.maps[0];
+        if (!currentMapStr) {
+          alert('No knowledge map to configure');
+          return;
+        }
+        
+        // Call the configure endpoint
+        const payload = { 
+          existing_map: currentMapStr,
+          instructions: configPrompt 
+        };
+        res = await fetch('http://localhost:5000/api/v1/configure-map', { 
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' }, 
+          body: JSON.stringify(payload) 
+        });
+        
         const data = await res.json();
-        const merged = mergeKnowledgeMaps(activeMap.maps, data.maps || []);
-        const updatedAll = allMaps.map(m => m.id === activeMap.id ? { ...m, maps: merged } : m);
+        
+        // Parse the modified map and current map
+        let modifiedMap;
+        let currentMap;
+        try {
+          modifiedMap = JSON.parse(data.maps[0]);
+          currentMap = JSON.parse(currentMapStr);
+        } catch (e) {
+          console.error('Failed to parse maps', e);
+          alert('Failed to process modified map');
+          return;
+        }
+        
+        // Intelligently merge: preserve progress for subtopics that still exist
+        // Match by title to preserve progress data
+        const titleToExistingSub = new Map();
+        currentMap.subtopics.forEach((sub) => {
+          titleToExistingSub.set(sub.title, sub);
+        });
+        
+        // Update modified subtopics with preserved progress
+        modifiedMap.subtopics = modifiedMap.subtopics.map((modifiedSub) => {
+          const existingSub = titleToExistingSub.get(modifiedSub.title);
+          if (existingSub) {
+            // Preserve all progress data and existing quiz questions with performance metrics
+            return {
+              ...modifiedSub,
+              // Preserve progress
+              answered: existingSub.answered || 0,
+              correct: existingSub.correct || 0,
+              status: existingSub.status || 'unmastered',
+              wrongQuestions: existingSub.wrongQuestions || [],
+              // Preserve existing quiz questions with performance data, merge with new ones
+              quiz: (() => {
+                const existingQuestionMap = new Map();
+                (existingSub.quiz || []).forEach((q) => {
+                  const qId = q.id || q.question;
+                  existingQuestionMap.set(qId, q);
+                });
+                
+                // Add new questions that don't exist
+                (modifiedSub.quiz || []).forEach((q) => {
+                  const qId = q.id || q.question;
+                  if (!existingQuestionMap.has(qId)) {
+                    existingQuestionMap.set(qId, {
+                      ...q,
+                      id: qId,
+                      timesAsked: 0,
+                      timesCorrect: 0,
+                      timesWrong: 0,
+                    });
+                  }
+                });
+                
+                return Array.from(existingQuestionMap.values());
+              })(),
+            };
+          }
+          // New subtopic - ensure questions have IDs and default performance data
+          return {
+            ...modifiedSub,
+            quiz: (modifiedSub.quiz || []).map((q, idx) => ({
+              ...q,
+              id: q.id || `q_${Date.now()}_${idx}`,
+              timesAsked: q.timesAsked || 0,
+              timesCorrect: q.timesCorrect || 0,
+              timesWrong: q.timesWrong || 0,
+            })),
+          };
+        });
+        
+        // Replace the map with the merged result
+        const updatedAll = allMaps.map(m => 
+          m.id === activeMap.id 
+            ? { ...m, maps: [JSON.stringify(modifiedMap)] } 
+            : m
+        );
         setAllMaps(updatedAll);
         localStorage.setItem('knowledgeMaps', JSON.stringify(updatedAll));
       }
@@ -246,13 +410,26 @@ export default function FileUploader() {
       titleToSub.set(sub.title, sub);
     });
 
-    // Preserve progress fields if present
+    // Preserve progress fields and performance data
     const preserveProgress = (oldSub, newSub) => {
       const preserved = { ...newSub };
       if (oldSub) {
+        // Preserve all performance tracking
         if (typeof oldSub.answered !== "undefined") preserved.answered = oldSub.answered;
         if (typeof oldSub.correct !== "undefined") preserved.correct = oldSub.correct;
         if (typeof oldSub.status !== "undefined") preserved.status = oldSub.status;
+        if (oldSub.wrongQuestions) preserved.wrongQuestions = oldSub.wrongQuestions;
+        
+        // Preserve existing quiz questions with their performance data
+        // Only add new questions that don't already exist (by ID or question text)
+        const existingQuestionIds = new Set((oldSub.quiz || []).map(q => q.id || q.question));
+        const newQuestions = (newSub.quiz || []).filter(q => {
+          const qId = q.id || q.question;
+          return !existingQuestionIds.has(qId);
+        });
+        
+        // Merge quizzes: keep all existing with performance data, add only truly new ones
+        preserved.quiz = [...(oldSub.quiz || []), ...newQuestions];
       }
       return preserved;
     };
@@ -262,12 +439,12 @@ export default function FileUploader() {
       (inc.subtopics || []).forEach((incSub) => {
         const existing = titleToSub.get(incSub.title);
         if (existing) {
-          // Merge fields; append quizzes
+          // Merge fields; preserve all existing quiz questions and performance data
           const merged = preserveProgress(existing, {
             ...existing,
             description: incSub.description || existing.description,
             key_concepts: Array.from(new Set([...(existing.key_concepts || []), ...(incSub.key_concepts || [])])),
-            quiz: [...(existing.quiz || []), ...(incSub.quiz || [])],
+            // quiz is handled in preserveProgress
           });
           titleToSub.set(incSub.title, merged);
         } else {
@@ -468,14 +645,14 @@ export default function FileUploader() {
                       <div className="space-y-4">
                         {parsed.subtopics.map((sub, idx) => (
                           <div
-                            key={idx}
+                        key={idx}
                             className="p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md bg-white border border-gray-200"
                             style={{ 
                               borderLeft: '4px solid #6366f1'
                             }}
                         onClick={() => {
                           console.log("Subtopic on click:", sub);
-                          router.push(`/quiz?subtopic=${encodeURIComponent(sub.title)}&data=${encodeURIComponent(JSON.stringify(sub))}`);
+                          router.push(`/quiz?subtopic=${encodeURIComponent(sub.title)}&data=${encodeURIComponent(JSON.stringify(sub))}&mapId=${encodeURIComponent(activeMap.id)}`);
                         }}
                       >
                             <div className="flex justify-between items-start mb-3">
@@ -485,9 +662,9 @@ export default function FileUploader() {
                               <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                 sub.status === "mastered" ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                               }`}>
-                                {sub.status}
-                              </span>
-                            </div>
+                            {sub.status}
+                          </span>
+                        </div>
 
                             <p className="text-sm mb-3 text-gray-600">
                               {sub.description}
@@ -507,27 +684,73 @@ export default function FileUploader() {
                                   </span>
                                 ))}
                               </div>
-                            </div>
+                        </div>
 
                             <div className="flex items-center justify-between">
                               <div className="text-sm text-gray-600">
-                                Mastery: {sub.answered ? `${Math.round((sub.correct || 0) / sub.answered * 100)}%` : "0%"}
+                                {(() => {
+                                  // Calculate mastery percentage based on both accuracy and question count
+                                  const accuracy = sub.answered ? (sub.correct || 0) / sub.answered : 0;
+                                  const questionCount = sub.answered || 0;
+                                  
+                                  // Mastery is a combination of:
+                                  // - Accuracy weight: 5% of final score
+                                  // - Question count weight: 95% of final score (very heavily weighted)
+                                  // Question count uses squared ratio scaling for extremely slow early progress
+                                  // Requires 80+ questions for full credit
+                                  
+                                  const accuracyScore = Math.min(accuracy * 100, 100); // 0-100 based on accuracy
+                                  
+                                  // Use squared ratio for extremely slow early progress
+                                  // 2 questions: (2/80)^2 * 100 = ~0.06% from questions
+                                  const MAX_QUESTIONS_FOR_FULL_CREDIT = 80; // Attainable but requires significant practice
+                                  let questionCountScore = 0;
+                                  if (questionCount > 0) {
+                                    const ratio = questionCount / MAX_QUESTIONS_FOR_FULL_CREDIT;
+                                    // Square the ratio for extremely slow early progress
+                                    // Example with 2 questions: (2/80)^2 * 100 = 0.000625 * 100 = 0.063%
+                                    questionCountScore = Math.min(
+                                      Math.pow(ratio, 2) * 100,
+                                      100
+                                    );
+                                  }
+                                  
+                                  const masteryPercentage = Math.round(
+                                    (accuracyScore * 0.05) + (questionCountScore * 0.95)
+                                  );
+                                  
+                                  return `Mastery: ${masteryPercentage}%`;
+                                })()}
                               </div>
                               <div className="w-24 bg-gray-200 rounded-full h-2">
                                 <div
                                   className="h-2 rounded-full transition-all duration-300 bg-indigo-600"
-                                  style={{
-                                    width: `${sub.answered ? ((sub.correct || 0) / sub.answered) * 100 : 0}%`,
-                                  }}
-                                ></div>
+                            style={{
+                                    width: `${(() => {
+                                      const accuracy = sub.answered ? (sub.correct || 0) / sub.answered : 0;
+                                      const questionCount = sub.answered || 0;
+                                      const accuracyScore = Math.min(accuracy * 100, 100);
+                                      const MAX_QUESTIONS_FOR_FULL_CREDIT = 80;
+                                      let questionCountScore = 0;
+                                      if (questionCount > 0) {
+                                        const ratio = questionCount / MAX_QUESTIONS_FOR_FULL_CREDIT;
+                                        questionCountScore = Math.min(
+                                          Math.pow(ratio, 2) * 100, 
+                                          100
+                                        );
+                                      }
+                                      return Math.round((accuracyScore * 0.05) + (questionCountScore * 0.95));
+                                    })()}%`,
+                            }}
+                          ></div>
                         </div>
                             </div>
                           </div>
                         ))}
                       </div>
               </div>
-            );
-          })}
+                    );
+                  })}
 
                 {/* Bottom actions: Edit (append) / Delete */}
                 <div className="mt-8 flex items-center gap-3">
@@ -603,7 +826,7 @@ export default function FileUploader() {
                       placeholder="e.g., focus on chapter 3 only; add more math questions"
                     />
                   </div>
-                </div>
+              </div>
               ) : (
                 <div className="space-y-4">
                   <p className="text-sm text-gray-700">Provide instructions to reorganize or enrich the current knowledge map. Existing progress will be preserved where subtopics are unchanged.</p>
@@ -613,8 +836,8 @@ export default function FileUploader() {
                     className="w-full h-40 p-3 border border-gray-300 rounded"
                     placeholder="e.g., regroup subtopics by difficulty; add 5 advanced questions to Algebra; mark vocabulary subtopics as unmastered"
                   />
-                </div>
-              )}
+        </div>
+      )}
 
               <div className="mt-6 flex items-center justify-end gap-3">
                 <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 rounded bg-gray-200 text-gray-800 hover:bg-gray-300">Cancel</button>

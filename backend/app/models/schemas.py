@@ -28,6 +28,7 @@ class QuestionGenerationRequest(BaseModel):
     description: str
     key_concepts: List[str]
     num_questions: Optional[int] = 3
+    focus_on_weak_areas: Optional[bool] = False
 
 
 class QuestionResponse(BaseModel):

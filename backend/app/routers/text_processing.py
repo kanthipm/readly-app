@@ -11,6 +11,11 @@ class TextContentRequest(BaseModel):
     content: str
 
 
+class ConfigureMapRequest(BaseModel):
+    existing_map: str  # JSON string of existing knowledge map
+    instructions: str  # Instructions for modification
+
+
 router = APIRouter()
 
 
@@ -78,4 +83,34 @@ async def process_text_content(request: TextContentRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing text content: {str(e)}")
+
+
+@router.post("/configure-map", response_model=UploadResponse)
+async def configure_knowledge_map(request: ConfigureMapRequest):
+    """Modify an existing knowledge map based on instructions"""
+    
+    if not request.instructions.strip():
+        raise HTTPException(status_code=400, detail="Instructions cannot be empty")
+    
+    if not request.existing_map.strip():
+        raise HTTPException(status_code=400, detail="Existing map cannot be empty")
+
+    try:
+        # Modify the existing knowledge map based on instructions
+        modified_map_json = knowledge_service.configure_knowledge_map(
+            request.existing_map,
+            request.instructions
+        )
+
+        if validate_knowledge_map(modified_map_json):
+            return UploadResponse(
+                maps=[modified_map_json],
+                message="Successfully configured knowledge map",
+                chunks_processed=1,
+            )
+        else:
+            raise HTTPException(status_code=500, detail="Modified knowledge map is invalid")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error configuring knowledge map: {str(e)}")
 

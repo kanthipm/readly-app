@@ -18,7 +18,11 @@ async def generate_additional_questions(request: QuestionGenerationRequest):
     print(f"Generating {request.num_questions} questions for: {request.title}")
 
     questions_json = knowledge_service.generate_additional_questions(
-        request.title, request.description, request.key_concepts, request.num_questions
+        request.title, 
+        request.description, 
+        request.key_concepts, 
+        request.num_questions or 3,
+        request.focus_on_weak_areas or False
     )
 
     generation_time = time.time() - start_time

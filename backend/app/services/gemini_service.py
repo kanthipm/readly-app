@@ -51,7 +51,7 @@ class GeminiService:
             self.api_key = api_key
             print("Gemini API key loaded successfully")
         
-        self.model = "gemini-2.0-flash"  # Fast and stable model
+        self.model = "gemini-1.5-flash-lite"  # Fast and cost-effective model
         self.max_retries = 3
         self.retry_delay = 1
 

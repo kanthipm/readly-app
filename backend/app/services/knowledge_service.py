@@ -48,7 +48,7 @@ CRITICAL: Your response must be valid JSON that can be parsed directly. Start wi
 
 ### Instructions:
 1. Generate 2-5 subtopics based on the content
-2. Create at least 2 quiz questions per subtopic
+2. Create at least 5 quiz questions per subtopic
 3. ALL questions MUST have explanations
 4. Base everything on the actual content provided
 5. Return ONLY valid JSON, no markdown, no code blocks
@@ -65,32 +65,25 @@ Remember: Return ONLY the JSON object, starting with {{ and ending with }}."""
         subtopic_description: str,
         key_concepts: List[str],
         num_questions: int = 3,
+        focus_on_weak_areas: bool = False,
     ) -> str:
-        """Generate additional quiz questions for a subtopic"""
-        prompt = f"""Generate {num_questions} multiple choice quiz questions based on this subtopic.
+        """Generate additional quiz questions for a subtopic - optimized to avoid long prompts"""
+        weak_areas_note = ""
+        if focus_on_weak_areas:
+            weak_areas_note = "\nIMPORTANT: Focus on creating questions that help reinforce understanding of challenging concepts. Make questions that test deeper comprehension."
+        
+        prompt = f"""Generate {num_questions} multiple choice quiz questions.
 
 Subtopic: {subtopic_title}
 Description: {subtopic_description}
-Key Concepts: {', '.join(key_concepts[:5])}
+Key Concepts: {', '.join(key_concepts[:5])}{weak_areas_note}
 
-CRITICAL: Return ONLY a valid JSON array. Do NOT include markdown, code blocks, or any extra text. Start with [ and end with ].
+Return ONLY a valid JSON array. Start with [ and end with ]. No markdown, no code blocks.
 
-Required Format:
-[
-  {{
-    "question": "Question about the subtopic based on the description and key concepts",
-    "options": ["A. Option A", "B. Option B", "C. Option C", "D. Option D"],
-    "answer": "Correct option with letter and text",
-    "explanation": "Detailed explanation of why this answer is correct based on the subtopic content"
-  }}
-]
+Format:
+[{{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "Correct option", "explanation": "..."}}]
 
-Requirements:
-- Generate exactly {num_questions} questions
-- All questions must be based on: {subtopic_title} - {subtopic_description}
-- Each question MUST have an explanation
-- Questions should test understanding of the key concepts: {', '.join(key_concepts[:5])}
-- Return ONLY the JSON array, no markdown, no code blocks"""
+Generate exactly {num_questions} questions. All must test understanding of: {subtopic_title}. Each MUST have an explanation."""
 
         # Try up to max retries
         for attempt in range(settings.MAX_RETRIES):
@@ -112,6 +105,69 @@ Requirements:
                     return f"Error: {str(e)}"
 
         return "Error: All attempts failed"
+
+    def configure_knowledge_map(self, existing_map_json: str, instructions: str) -> str:
+        """Modify an existing knowledge map based on instructions, preserving progress"""
+        try:
+            existing_map = json.loads(existing_map_json)
+        except json.JSONDecodeError:
+            return "Error: Invalid existing knowledge map JSON"
+        
+        # Prepare subtopic summaries with progress data for AI context
+        subtopic_summaries = []
+        for sub in existing_map.get("subtopics", []):
+            progress_info = f"Progress: {sub.get('answered', 0)} answered, {sub.get('correct', 0)} correct, status: {sub.get('status', 'unmastered')}"
+            subtopic_summaries.append(f"- {sub.get('title', 'Untitled')}: {sub.get('description', '')} ({progress_info})")
+        
+        subtopics_list = "\n".join(subtopic_summaries)
+        
+        prompt = f"""You are an educational AI assistant. Modify an existing knowledge map based on the user's instructions.
+
+CRITICAL: Your response must be valid JSON that can be parsed directly. Start with {{ and end with }}. No markdown, no code blocks, no comments, no extra text.
+
+### Current Knowledge Map:
+Topic: {existing_map.get('topic', 'Unknown')}
+
+Current Subtopics:
+{subtopics_list}
+
+### User Instructions:
+{instructions}
+
+### Required JSON Structure:
+{{
+  "topic": "Topic title (may be modified if instructed)",
+  "subtopics": [
+    {{
+      "title": "Subtopic title",
+      "description": "Brief summary",
+      "key_concepts": ["concept1", "concept2", "concept3"],
+      "status": "unmastered",
+      "quiz": [
+        {{
+          "question": "Question text",
+          "options": ["A. Option", "B. Option", "C. Option", "D. Option"],
+          "answer": "Correct option",
+          "explanation": "Explanation text"
+        }}
+      ]
+    }}
+  ]
+}}
+
+### IMPORTANT Rules:
+1. Follow the user's instructions exactly (e.g., remove subtopic X, reorganize by Y, etc.)
+2. If a subtopic is removed per instructions, do NOT include it in the response
+3. If subtopics are reorganized, create new structure as instructed
+4. For subtopics that remain, preserve their quiz questions (at least 5 per subtopic)
+5. You may modify descriptions, key_concepts, and quiz questions based on instructions
+6. If instructions ask to add new subtopics or content, do so
+7. Always maintain at least 5 quiz questions per subtopic
+8. Return ONLY valid JSON, no markdown, no code blocks
+
+Return the COMPLETE modified knowledge map as JSON."""
+        
+        return self.gemini.generate_response(prompt)
 
 
 knowledge_service = KnowledgeService()
