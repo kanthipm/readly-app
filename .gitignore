@@ -42,4 +42,11 @@ next-env.d.ts
 
 
 backend/env/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+backend/__pycache__/
+backend/**/__pycache__/
 

@@ -2,6 +2,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { apiUrl } from "../../lib/api";
 
 type QuizQuestion = {
   question: string;
@@ -52,7 +53,7 @@ export default function QuizPage() {
       
       console.log("🔄 Generating questions for:", subtopic.title);
       
-      const response = await fetch("http://localhost:5000/api/v1/generate-questions", {
+      const response = await fetch(`${apiUrl}/api/v1/generate-questions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -70,13 +71,25 @@ export default function QuizPage() {
         const data = await response.json();
         
         if (data.questions && Array.isArray(data.questions)) {
-          const newQuestions = data.questions.map((q: QuizQuestion, idx: number) => ({
-            ...q,
-            id: `q_${Date.now()}_${idx}`,
-            timesAsked: 0,
-            timesCorrect: 0,
-            timesWrong: 0,
-          }));
+          // Create a set of existing question IDs and texts to avoid duplicates
+          const existingIds = new Set((subtopic.quiz || []).map(q => q.id || q.question));
+          const existingQuestions = new Set((subtopic.quiz || []).map(q => q.question.trim().toLowerCase()));
+          
+          // Filter out duplicates: check both ID and question text
+          const newQuestions = data.questions
+            .map((q: QuizQuestion, idx: number) => ({
+              ...q,
+              id: `q_${Date.now()}_${idx}`,
+              timesAsked: 0,
+              timesCorrect: 0,
+              timesWrong: 0,
+            }))
+            .filter((q: QuizQuestion) => {
+              const questionId = q.id || q.question;
+              const questionText = q.question.trim().toLowerCase();
+              // Only include if not already in quiz (by ID or text)
+              return !existingIds.has(questionId) && !existingQuestions.has(questionText);
+            });
           
           // Save the old length to know where to set current
           const oldLength = subtopic.quiz.length;
@@ -122,9 +135,29 @@ export default function QuizPage() {
 
   // Function to prioritize questions for a new session:
   // Mostly fresh questions, with wrong questions sprinkled in occasionally
+  // Ensures no duplicates by question ID or text
   const prioritizeQuestionsForSession = (questions: QuizQuestion[]): QuizQuestion[] => {
     const now = Date.now();
     const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    
+    // First, remove duplicates by ID or question text
+    const seenIds = new Set<string>();
+    const seenQuestions = new Set<string>();
+    const uniqueQuestions: QuizQuestion[] = [];
+    
+    questions.forEach((q) => {
+      const questionId = q.id || q.question;
+      const questionText = q.question.trim().toLowerCase();
+      
+      // Skip if we've seen this ID or this exact question text
+      if (seenIds.has(questionId) || seenQuestions.has(questionText)) {
+        return;
+      }
+      
+      seenIds.add(questionId);
+      seenQuestions.add(questionText);
+      uniqueQuestions.push(q);
+    });
     
     // Categorize questions
     const neverAsked: QuizQuestion[] = [];
@@ -132,7 +165,7 @@ export default function QuizPage() {
     const oldQuestions: QuizQuestion[] = []; // Asked > 1 day ago
     const recentQuestions: QuizQuestion[] = []; // Asked within last day
     
-    questions.forEach((q) => {
+    uniqueQuestions.forEach((q) => {
       const timesAsked = q.timesAsked || 0;
       const timesWrong = q.timesWrong || 0;
       const lastAsked = q.lastAsked ? new Date(q.lastAsked).getTime() : 0;
@@ -531,9 +564,19 @@ export default function QuizPage() {
                         if (stored) {
                             const mapsData = JSON.parse(stored);
                             const updatedMaps = mapsData.map((mapGroup: any) => {
+                                // Safety check: ensure maps exists and is an array
+                                if (!mapGroup.maps || !Array.isArray(mapGroup.maps)) {
+                                    return mapGroup; // Return unchanged if maps is invalid
+                                }
+                                
                                 const updatedMaps = mapGroup.maps.map((mapStr: string) => {
                                     try {
                                         const map = JSON.parse(mapStr);
+                                        // Safety check: ensure subtopics exists before mapping
+                                        if (!map.subtopics || !Array.isArray(map.subtopics)) {
+                                            return mapStr; // Return unchanged if subtopics is invalid
+                                        }
+                                        
                                         map.subtopics = map.subtopics.map((sub: any) =>
                                             sub.title === updatedSubtopic.title ? updatedSubtopic : sub
                                         );

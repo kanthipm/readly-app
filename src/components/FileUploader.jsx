@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { apiUrl } from "../lib/api";
 
 
 export default function FileUploader() {
@@ -86,12 +87,22 @@ export default function FileUploader() {
         updatedSubtopic.status = accuracy >= 0.85 && updatedSubtopic.answered >= 25 ? "mastered" : "unmastered";
 
         const updatedAllMaps = allMaps.map((mapGroup) => {
+          // Safety check: ensure maps exists and is an array
+          if (!mapGroup.maps || !Array.isArray(mapGroup.maps)) {
+            return mapGroup; // Return unchanged if maps is invalid
+          }
+
           const updatedMaps = mapGroup.maps.map((mapStr) => {
           let map;
           try {
             map = JSON.parse(mapStr);
           } catch {
             return mapStr;
+          }
+
+          // Safety check: ensure subtopics exists before mapping
+          if (!map.subtopics || !Array.isArray(map.subtopics)) {
+            return mapStr; // Return unchanged if subtopics is invalid
           }
 
           // Find and update the matching subtopic, preserving all quiz questions and performance data
@@ -167,7 +178,7 @@ export default function FileUploader() {
           formData.append("instructions", instructions);
         }
 
-        res = await fetch("http://localhost:5000/api/v1/upload", {
+        res = await fetch(`${apiUrl}/api/v1/upload`, {
         method: "POST",
         body: formData,
       });
@@ -175,7 +186,7 @@ export default function FileUploader() {
         const content = instructions.trim() 
           ? `Instructions: ${instructions}\n\n${textContent}`
           : textContent;
-        res = await fetch("http://localhost:5000/api/v1/process-text", {
+        res = await fetch(`${apiUrl}/api/v1/process-text`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -185,6 +196,15 @@ export default function FileUploader() {
       }
 
       const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.detail || `Server error: ${res.status}`);
+      }
+      
+      // Validate that we have maps data
+      if (!data.maps || !Array.isArray(data.maps) || data.maps.length === 0) {
+        throw new Error("No knowledge maps were generated. Please try again.");
+      }
       
       // Extract title from the first knowledge map's topic
       let generatedTitle = inputMode === "file" ? file.name.replace('.pdf', '') : 'Text Content';
@@ -203,7 +223,7 @@ export default function FileUploader() {
       const newMapGroup = {
         id: generateMapId(),
         title: generatedTitle,
-        maps: data.maps,
+        maps: data.maps || [],
         createdAt: new Date().toISOString()
       };
 
@@ -218,6 +238,7 @@ export default function FileUploader() {
       setInstructions("");
     } catch (err) {
       console.error("Processing failed:", err);
+      alert(`Error: ${err.message || "Failed to process. Please try again."}`);
     } finally {
       setLoading(false);
     }
@@ -232,10 +253,10 @@ export default function FileUploader() {
         if (editFile) {
           const formData = new FormData();
           formData.append('file', editFile);
-          res = await fetch('http://localhost:5000/api/v1/upload', { method: 'POST', body: formData });
+          res = await fetch(`${apiUrl}/api/v1/upload`, { method: 'POST', body: formData });
         } else if (editText.trim()) {
           const payload = { content: (configPrompt ? `Instructions: ${configPrompt}\n\n` : '') + editText };
-          res = await fetch('http://localhost:5000/api/v1/process-text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          res = await fetch(`${apiUrl}/api/v1/process-text`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         } else {
           return;
         }
@@ -261,7 +282,7 @@ export default function FileUploader() {
           existing_map: currentMapStr,
           instructions: configPrompt 
         };
-        res = await fetch('http://localhost:5000/api/v1/configure-map', { 
+        res = await fetch(`${apiUrl}/api/v1/configure-map`, { 
           method: 'POST', 
           headers: { 'Content-Type': 'application/json' }, 
           body: JSON.stringify(payload) 
@@ -621,7 +642,7 @@ export default function FileUploader() {
             </div>
 
             {/* Display Active Map */}
-            {activeMap && (
+            {activeMap && activeMap.maps && (
               <div>
                 {activeMap.maps.map((map, i) => {
             let parsed;
@@ -640,10 +661,10 @@ export default function FileUploader() {
             return (
                     <div key={i} className="mb-8 p-6 rounded-lg shadow-lg bg-white border border-gray-200">
                       <h3 className="text-2xl font-bold mb-6 text-gray-900">
-                        {parsed.topic}
+                        {parsed.topic || "Untitled Topic"}
                       </h3>
                       <div className="space-y-4">
-                        {parsed.subtopics.map((sub, idx) => (
+                        {(parsed.subtopics || []).map((sub, idx) => (
                           <div
                         key={idx}
                             className="p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md bg-white border border-gray-200"
@@ -675,7 +696,7 @@ export default function FileUploader() {
                                 Key Concepts:
                               </p>
                               <div className="flex flex-wrap gap-2">
-                                {sub.key_concepts.map((concept, conceptIdx) => (
+                                {(sub.key_concepts || []).map((concept, conceptIdx) => (
                                   <span
                                     key={conceptIdx}
                                     className="px-2 py-1 rounded text-xs font-medium bg-indigo-50 text-indigo-700"
