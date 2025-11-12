@@ -1,0 +1,11 @@
+# Place your Unity WebGL builds in subdirectories here
+# Example structure:
+# unity-games/
+#   └── my-game/
+#       └── Build/
+#           ├── my-game.loader.js
+#           ├── my-game.data
+#           ├── my-game.framework.js
+#           └── my-game.wasm
+
+

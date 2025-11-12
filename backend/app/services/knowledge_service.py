@@ -100,9 +100,10 @@ Generate exactly {num_questions} questions. All must test understanding of: {sub
                     if attempt == settings.MAX_RETRIES - 1:
                         return result or "Error: No response from model"
             except Exception as e:
-                print(f"Unexpected error on attempt {attempt + 1}: {e}")
+                error_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+                print(f"Unexpected error on attempt {attempt + 1}: {error_msg}")
                 if attempt == settings.MAX_RETRIES - 1:
-                    return f"Error: {str(e)}"
+                    return f"Error: {error_msg}"
 
         return "Error: All attempts failed"
 

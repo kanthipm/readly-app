@@ -55,4 +55,6 @@ async def upload_pdf(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing PDF: {str(e)}")
+        # Safely encode error message to avoid emoji encoding issues on Windows
+        error_msg = str(e).encode('ascii', errors='replace').decode('ascii')
+        raise HTTPException(status_code=500, detail=f"Error processing PDF: {error_msg}")
