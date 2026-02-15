@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import json
 
 from ..config import settings
@@ -9,8 +9,8 @@ class KnowledgeService:
     def __init__(self):
         self.gemini = gemini_service
 
-    def generate_knowledge_map(self, text_chunk: str, instructions: str = None) -> str:
-        """Generate a knowledge map from a text chunk using Gemini"""
+    def generate_knowledge_map(self, text_chunk: str, instructions: str = None) -> Tuple[str, bool]:
+        """Generate a knowledge map from a text chunk using Gemini. Returns (json_str, is_fallback)."""
         instructions_section = ""
         if instructions and instructions.strip():
             instructions_section = f"\n### Additional Instructions:\n{instructions.strip()}\n"
@@ -57,7 +57,8 @@ CRITICAL: Your response must be valid JSON that can be parsed directly. Start wi
 {text_chunk}
 
 Remember: Return ONLY the JSON object, starting with {{ and ending with }}."""
-        return self.gemini.generate_response(prompt)
+        content, is_fallback = self.gemini.generate_response(prompt)
+        return (content, is_fallback)
 
     def generate_additional_questions(
         self,
@@ -91,7 +92,7 @@ Generate exactly {num_questions} questions. All must test understanding of: {sub
                 print(
                     f"Generating questions (attempt {attempt + 1}/{settings.MAX_RETRIES})..."
                 )
-                result = self.gemini.generate_response(prompt)
+                result, _ = self.gemini.generate_response(prompt)
                 if result and not result.startswith("Error:"):
                     print(f"AI Response: {result[:200]}...")
                     return result
@@ -168,7 +169,8 @@ Current Subtopics:
 
 Return the COMPLETE modified knowledge map as JSON."""
         
-        return self.gemini.generate_response(prompt)
+        content, _ = self.gemini.generate_response(prompt)
+        return content
 
 
 knowledge_service = KnowledgeService()

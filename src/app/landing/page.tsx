@@ -24,7 +24,7 @@ export default function LandingPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-tr from-indigo-400 to-pink-400 p-8 text-white">
-      <h1 className="text-5xl font-extrabold mb-8">Quista</h1>
+      <h1 className="text-5xl font-extrabold mb-8">Readly</h1>
       <p className="mb-6 text-xl">What grade are you in?</p>
 
       <div className="flex space-x-8 mb-10">

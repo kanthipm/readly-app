@@ -1,4 +1,4 @@
-# Environment Variables for Quista Backend
+# Environment Variables for Readly Backend
 
 # Gemini API Configuration
 # Get your API key from: https://makersuite.google.com/app/apikey

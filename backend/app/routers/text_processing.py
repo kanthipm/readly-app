@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from ..config import settings
 from ..models.schemas import UploadResponse
 from ..services.knowledge_service import knowledge_service
+from ..services.gemini_service import gemini_service
 from ..utils.validators import validate_knowledge_map
 
 
@@ -23,6 +24,12 @@ router = APIRouter()
 async def process_text_content(request: TextContentRequest):
     """Process text content to generate knowledge maps"""
     
+    if not getattr(gemini_service, "api_key", None):
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY is not set. Add it in backend/.env to generate knowledge maps from your content. Get a key at https://makersuite.google.com/app/apikey",
+        )
+
     if not request.content.strip():
         raise HTTPException(status_code=400, detail="Content cannot be empty")
 
@@ -63,12 +70,15 @@ async def process_text_content(request: TextContentRequest):
         chunks_to_process = chunks[:settings.MAX_CHUNKS]
         
         knowledge_maps = []
+        any_fallback = False
         for i, chunk in enumerate(chunks_to_process):
             print(f"Processing text chunk {i+1}/{len(chunks_to_process)}")
-            map_json = knowledge_service.generate_knowledge_map(
+            map_json, is_fallback = knowledge_service.generate_knowledge_map(
                 chunk,
                 instructions=instructions
             )
+            if is_fallback:
+                any_fallback = True
 
             if validate_knowledge_map(map_json):
                 knowledge_maps.append(map_json)
@@ -79,6 +89,7 @@ async def process_text_content(request: TextContentRequest):
             maps=knowledge_maps,
             message=f"Successfully processed {len(knowledge_maps)} knowledge maps from text content",
             chunks_processed=len(chunks_to_process),
+            warning="AI service was temporarily unavailable. This map contains placeholder content; try again for content from your document." if any_fallback else None,
         )
 
     except Exception as e:

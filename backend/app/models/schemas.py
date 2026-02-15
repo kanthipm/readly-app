@@ -39,6 +39,7 @@ class UploadResponse(BaseModel):
     maps: List[str]
     message: str
     chunks_processed: int
+    warning: Optional[str] = None  # e.g. when AI failed and fallback content was used
 
 
 class TestResponse(BaseModel):

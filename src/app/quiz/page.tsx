@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { apiUrl } from "../../lib/api";
@@ -27,7 +28,7 @@ type Subtopic = {
   wrongQuestions?: string[]; // IDs of questions frequently gotten wrong
 };
 
-export default function QuizPage() {
+function QuizPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [subtopic, setSubtopic] = useState<Subtopic | null>(null);
@@ -40,6 +41,10 @@ export default function QuizPage() {
   const [questionsAnsweredThisSession, setQuestionsAnsweredThisSession] = useState(0); // Track how many questions were actually answered
   const [hasGeneratedInBackground, setHasGeneratedInBackground] = useState(false); // Track if we're generating in background
   const [questionsAskedThisSession, setQuestionsAskedThisSession] = useState<Set<string>>(new Set()); // Track which question IDs have been asked in this session
+
+  // Unique key for "asked this session" so questions without id or with duplicate text don't all count as one
+  const getQuestionSessionKey = (q: QuizQuestion, index: number) =>
+    q.id || q.question || `q_${index}`;
 
   const generateMoreQuestions = async () => {
     if (!subtopic || isGenerating) return;
@@ -315,12 +320,12 @@ export default function QuizPage() {
     
     const currentQ = subtopic.quiz[current];
     if (currentQ) {
-      const questionId = currentQ.id || currentQ.question;
+      const questionId = getQuestionSessionKey(currentQ, current);
       if (questionsAskedThisSession.has(questionId)) {
         // Current question was already asked - find next unasked
         for (let idx = current + 1; idx < subtopic.quiz.length; idx++) {
           const q = subtopic.quiz[idx];
-          const qId = q.id || q.question;
+          const qId = getQuestionSessionKey(q, idx);
           if (!questionsAskedThisSession.has(qId)) {
             setCurrent(idx);
             return;
@@ -329,8 +334,7 @@ export default function QuizPage() {
         // All questions asked - will trigger generation
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, subtopic]);
+  }, [current, subtopic, questionsAskedThisSession]);
 
   if (!subtopic) return <div className="p-6">Loading...</div>;
 
@@ -364,14 +368,15 @@ export default function QuizPage() {
       setCorrectCount((c) => c + 1);
     }
     
-    // Track that we answered this question in this session
-    const questionId = currentQuestion.id || currentQuestion.question;
+    // Track that we answered this question in this session (use session key so duplicates don't end quiz early)
+    const questionSessionKey = getQuestionSessionKey(currentQuestion, current);
+    const questionId = currentQuestion.id || currentQuestion.question; // still use for quiz updates
     setQuestionsAnsweredThisSession((count) => count + 1);
     
     // Mark this question as asked in this session (if not already marked)
     setQuestionsAskedThisSession((prev) => {
       const newSet = new Set(prev);
-      newSet.add(questionId);
+      newSet.add(questionSessionKey);
       return newSet;
     });
     
@@ -418,7 +423,7 @@ export default function QuizPage() {
     const findNextUnaskedQuestion = (startIndex: number): number => {
       for (let idx = startIndex; idx < subtopic.quiz.length; idx++) {
         const question = subtopic.quiz[idx];
-        const questionId = question.id || question.question;
+        const questionId = getQuestionSessionKey(question, idx);
         if (!questionsAskedThisSession.has(questionId)) {
           return idx;
         }
@@ -428,7 +433,7 @@ export default function QuizPage() {
     };
     
     // Use current state value, but if current question was already asked, skip it
-    let startIdx = current + 1;
+    const startIdx = current + 1;
     const nextUnaskedIndex = findNextUnaskedQuestion(startIdx);
     
     if (nextUnaskedIndex === -1) {
@@ -563,7 +568,7 @@ export default function QuizPage() {
                         const stored = localStorage.getItem("knowledgeMaps");
                         if (stored) {
                             const mapsData = JSON.parse(stored);
-                            const updatedMaps = mapsData.map((mapGroup: any) => {
+                            const updatedMaps = mapsData.map((mapGroup: { maps: string[] }) => {
                                 // Safety check: ensure maps exists and is an array
                                 if (!mapGroup.maps || !Array.isArray(mapGroup.maps)) {
                                     return mapGroup; // Return unchanged if maps is invalid
@@ -577,7 +582,7 @@ export default function QuizPage() {
                                             return mapStr; // Return unchanged if subtopics is invalid
                                         }
                                         
-                                        map.subtopics = map.subtopics.map((sub: any) =>
+                                        map.subtopics = map.subtopics.map((sub: Subtopic) =>
                                             sub.title === updatedSubtopic.title ? updatedSubtopic : sub
                                         );
                                         return JSON.stringify(map);
@@ -612,5 +617,13 @@ export default function QuizPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function QuizPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Loading quiz...</div>}>
+      <QuizPageContent />
+    </Suspense>
   );
 }

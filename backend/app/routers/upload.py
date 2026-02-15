@@ -5,6 +5,7 @@ from ..config import settings
 from ..models.schemas import UploadResponse
 from ..services.knowledge_service import knowledge_service
 from ..services.pdf_service import pdf_service
+from ..services.gemini_service import gemini_service
 from ..utils.validators import validate_knowledge_map
 
 router = APIRouter()
@@ -21,6 +22,12 @@ async def upload_pdf(
     """Upload and process a PDF file to generate knowledge maps"""
     global uploaded_file_content
 
+    if not getattr(gemini_service, "api_key", None):
+        raise HTTPException(
+            status_code=503,
+            detail="GEMINI_API_KEY is not set. Add it in backend/.env to generate knowledge maps from your content. Get a key at https://makersuite.google.com/app/apikey",
+        )
+
     if not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
@@ -36,12 +43,15 @@ async def upload_pdf(
         chunks_to_process = chunks[: settings.MAX_CHUNKS]
 
         knowledge_maps = []
+        any_fallback = False
         for i, chunk in enumerate(chunks_to_process):
             print(f"Processing chunk {i+1}/{len(chunks_to_process)}")
-            map_json = knowledge_service.generate_knowledge_map(
-                chunk, 
+            map_json, is_fallback = knowledge_service.generate_knowledge_map(
+                chunk,
                 instructions=instructions if instructions and instructions.strip() else None
             )
+            if is_fallback:
+                any_fallback = True
 
             if validate_knowledge_map(map_json):
                 knowledge_maps.append(map_json)
@@ -52,6 +62,7 @@ async def upload_pdf(
             maps=knowledge_maps,
             message=f"Successfully processed {len(knowledge_maps)} knowledge maps",
             chunks_processed=len(chunks_to_process),
+            warning="AI service was temporarily unavailable. This map contains placeholder content; try again for content from your document." if any_fallback else None,
         )
 
     except Exception as e:

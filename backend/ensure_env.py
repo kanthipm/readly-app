@@ -26,7 +26,7 @@ def ensure_env_file():
                         break
         
         # Create .env file with default values
-        env_content = f"""# Environment Variables for Quista Backend
+        env_content = f"""# Environment Variables for Readly Backend
 # This file is auto-generated. Modify as needed.
 
 # Gemini API Configuration

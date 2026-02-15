@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import FileUploader from "@/components/FileUploader";
 
 export default function Home() {
@@ -8,13 +9,15 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold mb-4 text-gray-900">
-            Quista
+            Readly
           </h1>
           <p className="text-xl text-gray-600">
             Transform your content into interactive knowledge maps
           </p>
         </div>
-        <FileUploader />
+        <Suspense fallback={<div className="text-center text-gray-500">Loading...</div>}>
+          <FileUploader />
+        </Suspense>
       </div>
     </main>
   );

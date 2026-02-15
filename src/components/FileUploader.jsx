@@ -20,6 +20,7 @@ export default function FileUploader() {
   const [editFile, setEditFile] = useState(null);
   const [configPrompt, setConfigPrompt] = useState("");
   const [instructions, setInstructions] = useState(""); // For initial upload
+  const [lastUploadWarning, setLastUploadWarning] = useState(null); // e.g. when AI returned fallback content
   const router = useRouter();
   const searchParams = useSearchParams();
   const hasAppliedUpdate = useRef(false);
@@ -167,6 +168,7 @@ export default function FileUploader() {
     if (inputMode === "text" && !textContent.trim()) return;
 
     setLoading(true);
+    setLastUploadWarning(null);
 
     try {
       let res;
@@ -231,6 +233,9 @@ export default function FileUploader() {
       setAllMaps(updatedAllMaps);
       setActiveMapId(newMapGroup.id);
       localStorage.setItem("knowledgeMaps", JSON.stringify(updatedAllMaps));
+
+      // Show warning if backend used fallback (e.g. AI temporarily unavailable)
+      setLastUploadWarning(data.warning || null);
 
       // Clear inputs
       setFile(null);
@@ -602,6 +607,21 @@ export default function FileUploader() {
         >
           {loading ? "Processing..." : inputMode === "file" ? "Upload & Generate Map" : "Generate Knowledge Map"}
       </button>
+
+        {/* Warning when last upload used fallback content */}
+        {lastUploadWarning && (
+          <div className="mt-6 p-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-800" role="alert">
+            <p className="font-medium">Placeholder content shown</p>
+            <p className="text-sm mt-1">{lastUploadWarning}</p>
+            <button
+              type="button"
+              onClick={() => setLastUploadWarning(null)}
+              className="mt-2 text-sm underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Tabs for Multiple Knowledge Maps */}
         {allMaps.length > 0 && (

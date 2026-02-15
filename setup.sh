@@ -1,5 +1,5 @@
 #!/bin/bash
-# Bash setup script for Quista App
+# Bash setup script for Readly App
 
 pip install -r backend/requirements.txt
 

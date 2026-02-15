@@ -37,6 +37,10 @@ interface UnityGameProps {
    * Additional CSS classes for the container
    */
   className?: string;
+  /**
+   * Callback to receive Unity context (for sending messages)
+   */
+  onContextReady?: (context: { sendMessage: (gameObject: string, method: string, value?: string) => void }) => void;
 }
 
 export default function UnityGame({
@@ -47,15 +51,25 @@ export default function UnityGame({
   onLoad,
   onError,
   className = "",
+  onContextReady,
 }: UnityGameProps) {
+  // setError reserved for future Unity loader error handling
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- reserved for Unity error callback
   const [error, setError] = React.useState<string | null>(null);
   
-  const { unityProvider, isLoaded, loadingProgression } = useUnityContext({
+  const { unityProvider, isLoaded, loadingProgression, sendMessage } = useUnityContext({
     loaderUrl: `${buildPath}/Build/${gameName}.loader.js`,
     dataUrl: `${buildPath}/Build/${gameName}.data`,
     frameworkUrl: `${buildPath}/Build/${gameName}.framework.js`,
     codeUrl: `${buildPath}/Build/${gameName}.wasm`,
   });
+
+  // Expose context when loaded
+  React.useEffect(() => {
+    if (isLoaded && onContextReady) {
+      onContextReady({ sendMessage });
+    }
+  }, [isLoaded, onContextReady, sendMessage]);
 
   React.useEffect(() => {
     if (isLoaded && onLoad) {

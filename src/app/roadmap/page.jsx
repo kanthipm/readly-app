@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 const lessons = [
@@ -9,7 +10,7 @@ const lessons = [
   // Add more lessons here
 ];
 
-export default function Roadmap() {
+function RoadmapContent() {
   const searchParams = useSearchParams();
   const grade = searchParams.get("grade");
 
@@ -17,7 +18,7 @@ export default function Roadmap() {
     <div className="flex min-h-screen bg-gray-100">
       {/* Sidebar */}
       <nav className="w-48 bg-indigo-700 text-white flex flex-col items-start py-8 px-4 space-y-6">
-        <div className="text-2xl font-bold mb-10 ml-2">Quista</div>
+        <div className="text-2xl font-bold mb-10 ml-2">Readly</div>
         <button className="flex items-center gap-3 px-2 py-3 rounded hover:bg-indigo-600 w-full">
           <span className="text-xl">🏠</span>
           <span className="font-semibold">Home</span>
@@ -77,5 +78,13 @@ export default function Roadmap() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function Roadmap() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Loading...</div>}>
+      <RoadmapContent />
+    </Suspense>
   );
 }

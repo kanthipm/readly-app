@@ -7,7 +7,7 @@ from .app.routers import health, questions, upload, text_processing
 from .app.services.gemini_service import gemini_service
 
 app = FastAPI(
-    title="Quista API",
+    title="Readly API",
     version="1.0.0",
     description="AI-powered knowledge map generation from PDF documents",
 )
@@ -32,7 +32,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 async def root():
     """Root endpoint with API information"""
     return {
-        "message": "Quista API",
+        "message": "Readly API",
         "version": "1.0.0",
         "docs_url": "/docs",
         "endpoints": {

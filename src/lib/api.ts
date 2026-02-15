@@ -3,19 +3,25 @@
  * Uses environment variable for API URL, falls back to localhost in development
  */
 export function getApiUrl(): string {
-  // In browser, use window.location.origin for same-origin requests
-  // In server-side, use environment variable
+  // Check for environment variable first
+  const envApiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (envApiUrl) {
+    return envApiUrl;
+  }
+
+  // In browser (client-side)
   if (typeof window !== 'undefined') {
-    // Client-side: use environment variable or default to same origin
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (apiUrl) {
-      return apiUrl;
+    // In development, default to localhost:5000
+    // In production, this would be handled by environment variable
+    if (process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost') {
+      return 'http://localhost:5000';
     }
-    // If no env var, assume API is on same origin (for Vercel serverless functions)
+    // For production without env var, assume API is on same origin
     return '';
   }
-  // Server-side: use environment variable or default
-  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+  // Server-side: default to localhost:5000
+  return 'http://localhost:5000';
 }
 
 export const apiUrl = getApiUrl();

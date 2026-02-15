@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 import google.generativeai as genai
 import time
@@ -33,7 +33,7 @@ class GeminiService:
             
             if not env_file.exists():
                 # Create .env file with template
-                env_content = """# Environment Variables for Quista Backend
+                env_content = """# Environment Variables for Readly Backend
 # This file is auto-generated. Modify as needed.
 
 # Gemini API Configuration
@@ -107,13 +107,12 @@ MAX_RETRIES=3
         self.retry_delay = 1
         print(f"Initialized with model: {self.model}")
 
-    def generate_response(self, prompt: str, max_tokens: int = 4000) -> str:
-        """Generate response using Gemini API with retry logic"""
+    def generate_response(self, prompt: str, max_tokens: int = 4000) -> Tuple[str, bool]:
+        """Generate response using Gemini API with retry logic. Returns (content, is_fallback)."""
         
-        # If no API key, return mock response
+        # If no API key, do not return mock - caller should check and return 503
         if not self.api_key:
-            print("WARNING: No API key available, returning mock response")
-            return self._create_mock_response()
+            raise ValueError("GEMINI_API_KEY is not set. Add it in backend/.env to generate knowledge maps from your content.")
         
         print(f"Using model: {self.model} for API call")
         
@@ -150,13 +149,13 @@ MAX_RETRIES=3
                 # Validate JSON
                 try:
                     json.loads(content)
-                    return content
+                    return (content, False)
                 except json.JSONDecodeError as e:
                     error_msg = str(e).encode('ascii', errors='replace').decode('ascii')
                     print(f"Invalid JSON response: {error_msg}")
                     print(f"Response preview: {content[:200]}...")
                     if attempt == self.max_retries - 1:
-                        return self._create_fallback_response()
+                        return (self._create_fallback_response(), True)
                     continue
                     
             except Exception as e:
@@ -166,9 +165,9 @@ MAX_RETRIES=3
                 if attempt < self.max_retries - 1:
                     time.sleep(self.retry_delay * (attempt + 1))
                 else:
-                    return self._create_fallback_response()
+                    return (self._create_fallback_response(), True)
         
-        return self._create_fallback_response()
+        return (self._create_fallback_response(), True)
 
     def _create_mock_response(self) -> str:
         """Create a mock response when API key is not available"""
@@ -254,7 +253,8 @@ Return ONLY a valid JSON array like this:
 
 Make questions challenging but fair. ALWAYS include explanations."""
 
-        return self.generate_response(prompt, max_tokens=2000)
+        content, _ = self.generate_response(prompt, max_tokens=2000)
+        return content
 
     def list_available_models(self):
         """List available Gemini models"""
